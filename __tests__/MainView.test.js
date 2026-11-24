@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import {BackHandler, Platform, Pressable, Text, TextInput} from 'react-native';
+import {Alert, BackHandler, Platform, Pressable, Text, TextInput} from 'react-native';
 import {act, create} from 'react-test-renderer';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 
@@ -14,14 +14,21 @@ import {SideMenu} from '../src/main/SideMenu';
 import {AppHeader} from '../src/main/AppHeader';
 import {EMPTY_STATE, VIEW_TITLE} from '../src/main/masonCopy';
 import {COLOR, LAYOUT} from '../src/theme/masonTheme';
-import {resetDatabaseForTests} from '../src/db/database';
+import {enableExampleSeedForTests, resetDatabaseForTests} from '../src/db/database';
+import {EXAMPLE_NAME} from '../src/sources/exampleDeck';
 import {addSource} from '../src/sources/sourcesRepo';
 import {
   initSources,
   refresh,
   resetSourcesForTests,
 } from '../src/sources/sourcesStore';
-import {DATA_VIEW_TITLE, FORM} from '../src/sources/sourcesCopy';
+import {
+  DATA_VIEW_TITLE,
+  FORM,
+  ROW,
+  activationAccessibilityLabel,
+  removeConfirmation,
+} from '../src/sources/sourcesCopy';
 import {initDecks, resetDecksForTests} from '../src/decks/deckStore';
 import {resetDeckSyncForTests, startSync} from '../src/decks/deckSyncStore';
 import {insertPendingQuestion, promoteDeck} from '../src/decks/decksRepo';
@@ -643,3 +650,85 @@ describe('sin red no pedida en toda la app (REQ-080)', () => {
     expect(texts(renderer).length).toBeGreaterThan(0);
   });
 });
+
+describe('instalacion nueva con el mazo de ejemplo (delta mazo-de-ejemplo)', () => {
+  // La siembra esta apagada en los tests por defecto (DD-023). Aqui se enciende:
+  // es el riesgo 2 de esa decision, el camino entero tal como lo vera la app.
+  beforeEach(() => {
+    resetDatabaseForTests();
+    resetSourcesForTests();
+    resetDecksForTests();
+    enableExampleSeedForTests();
+    initSources(makeMemoryDriver());
+    initDecks();
+  });
+
+  function goTo(renderer, view) {
+    press(renderer, 'Abrir menú');
+    press(renderer, view);
+  }
+
+  it('al abrir sale el estado vacio de siempre: el ejemplo no esta activo', () => {
+    const renderer = render();
+
+    expect(texts(renderer)).toContain(EMPTY_STATE.title);
+    expect(renderer.root.findByType(AppHeader).props.title).not.toBe(EXAMPLE_NAME);
+  });
+
+  it('en Datos esta el ejemplo, con el formulario oculto (REQ-010e)', () => {
+    const renderer = render();
+    goTo(renderer, 'Datos');
+
+    const shown = texts(renderer);
+    expect(shown).toContain(EXAMPLE_NAME);
+    expect(shown).toContain(ROW.exampleLabel);
+    expect(shown).toContain(FORM.open.toUpperCase());
+    expect(renderer.root.findAllByType(TextInput)).toHaveLength(0);
+  });
+
+  it('activarlo muestra sus 20 tarjetas en Tarjetas, sin red (EJEMPLO-005)', () => {
+    const renderer = render();
+    goTo(renderer, 'Datos');
+    press(renderer, activationAccessibilityLabel(EXAMPLE_NAME, false));
+    goTo(renderer, 'Tarjetas');
+
+    expect(renderer.root.findByType(AppHeader).props.title).toBe(EXAMPLE_NAME);
+    expect(texts(renderer).join(' ')).toContain('¿Cuántos planetas tiene el sistema solar?');
+    expect(readCounter(renderer)).toBe('01 DE 20');
+    expect(renderer.root.findByType(SideMenu).props.deckCount).toBe(20);
+  });
+
+  it('la primera fuente propia entra activa aunque el ejemplo este en la lista (REQ-017)', () => {
+    const renderer = render();
+    goTo(renderer, 'Datos');
+    press(renderer, FORM.open);
+
+    const [nameInput, urlInput] = renderer.root.findAllByType(TextInput);
+    act(() => {
+      nameInput.props.onChangeText('Geografia');
+      urlInput.props.onChangeText(SHEET);
+    });
+    press(renderer, FORM.submit);
+    goTo(renderer, 'Tarjetas');
+
+    expect(renderer.root.findByType(AppHeader).props.title).toBe('Geografia');
+  });
+
+  it('borrar el ejemplo, si era la unica fuente, despliega el formulario', () => {
+    const renderer = render();
+    goTo(renderer, 'Datos');
+
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    press(renderer, `${ROW.remove} ${EXAMPLE_NAME}`);
+    expect(alert.mock.calls[0][0]).toBe(removeConfirmation(EXAMPLE_NAME).title);
+    const destructive = alert.mock.calls[0][2].find(b => b.style === 'destructive');
+    act(() => {
+      destructive.onPress();
+    });
+    alert.mockRestore();
+
+    expect(texts(renderer)).not.toContain(EXAMPLE_NAME);
+    expect(renderer.root.findAllByType(TextInput)).toHaveLength(2);
+  });
+});
+
