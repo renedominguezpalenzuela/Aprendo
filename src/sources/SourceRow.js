@@ -66,7 +66,7 @@ export function SourceRow({
   const notice = isExample ? null : syncNotice(syncState);
 
   const confirmRemove = () => {
-    const copy = removeConfirmation(source.name);
+    const copy = removeConfirmation(source.name, {isExample});
 
     // Alert del sistema y no un modal propio (DD-013). Dos motivos, y el
     // segundo pesa mas que el estetico: es una confirmacion destructiva, donde

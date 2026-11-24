@@ -141,13 +141,19 @@ export function activationAccessibilityLabel(name, isActive) {
  * Nombra la fuente: un "¿Seguro?" a secas no deja comprobar que se va a borrar
  * la que se queria.
  *
+ * El mazo de ejemplo no tiene hoja, asi que no se habla de ella; y como borrarlo
+ * es para siempre, se dice (EJEMPLO-004).
+ *
  * @param {string} name
+ * @param {{isExample?: boolean}} [options]
  * @returns {{title: string, message: string, confirm: string, cancel: string}}
  */
-export function removeConfirmation(name) {
+export function removeConfirmation(name, {isExample = false} = {}) {
   return {
     title: 'Borrar fuente',
-    message: `Se eliminará «${name}» de la lista. Tu hoja de cálculo no se toca.`,
+    message: isExample
+      ? `Se eliminará «${name}» de la lista y no volverá a aparecer.`
+      : `Se eliminará «${name}» de la lista. Tu hoja de cálculo no se toca.`,
     confirm: 'Borrar',
     cancel: 'Cancelar',
   };

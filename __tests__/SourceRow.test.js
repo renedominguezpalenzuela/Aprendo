@@ -445,6 +445,13 @@ describe('SourceRow: el mazo de ejemplo (EJEMPLO-003)', () => {
     act(() => {
       button(renderer, l => l === `${ROW.remove} ${EXAMPLE.name}`).props.onPress();
     });
+    // El aviso no habla de una hoja que no existe, y dice que no vuelve.
+    const message = alert.mock.calls[0][1];
+    expect(message).toBe(
+      'Se eliminará «Ejemplo: El sistema solar» de la lista y no volverá a aparecer.',
+    );
+    expect(message).not.toMatch(/hoja/i);
+
     const destructive = alert.mock.calls[0][2].find(b => b.style === 'destructive');
     destructive.onPress();
     alert.mockRestore();
