@@ -11,7 +11,6 @@
  */
 
 import {
-  currentSeedForTests,
   enableExampleSeedForTests,
   getDb,
   openDatabase,
@@ -431,20 +430,18 @@ describe('migracion 4 y mazo de ejemplo (delta mazo-de-ejemplo)', () => {
   const examples = db =>
     db.executeSync("SELECT * FROM sources WHERE kind = 'example'").rows;
 
-  it('en produccion la siembra es seedExampleDeck (DD-023)', () => {
-    // `resetDatabaseForTests` del beforeEach la apaga; este test lee el valor con
-    // el que nace el modulo, que es el que vera la app.
+  it('tal como nace el modulo, una base nueva trae el ejemplo (DD-023)', () => {
+    // `resetDatabaseForTests` del beforeEach apaga la siembra en ESTA copia del
+    // modulo. Una copia recien cargada, sin tocar, es lo que vera la app.
     jest.isolateModules(() => {
       const fresh = require('../src/db/database');
-      const {seedExampleDeck: real} = require('../src/sources/exampleDeck');
+      const {db} = fresh.openDatabase(makeMemoryDriver());
 
-      expect(fresh.currentSeedForTests()).toBe(real);
+      expect(examples(db).map(row => row.name)).toEqual([EXAMPLE_NAME]);
     });
   });
 
   it('resetDatabaseForTests la apaga: una base nueva de test nace vacia', () => {
-    expect(currentSeedForTests()).toBeNull();
-
     const {db} = openDatabase(makeMemoryDriver());
 
     expect(db.executeSync('SELECT COUNT(*) AS n FROM sources').rows[0].n).toBe(0);

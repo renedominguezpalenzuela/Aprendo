@@ -6,7 +6,8 @@
  * @format
  */
 
-import {resetDatabaseForTests} from '../src/db/database';
+import {enableExampleSeedForTests, resetDatabaseForTests} from '../src/db/database';
+import {seedExampleDeck} from '../src/sources/exampleDeck';
 import {
   getSnapshot,
   initSources,
@@ -132,3 +133,26 @@ describe('refresh', () => {
     expect(getSnapshot().status).toBe('error');
   });
 });
+
+describe('la siembra del ejemplo falla al crear la base (DD-020, delta mazo-de-ejemplo)', () => {
+  it('el store queda en error, como cualquier fallo de la base (REQ-005)', () => {
+    resetDatabaseForTests();
+    resetSourcesForTests();
+
+    const makeDriver = makeMemoryDriver();
+    const db = makeDriver();
+    enableExampleSeedForTests((conn, now) => {
+      seedExampleDeck(conn, now);
+      throw new Error('disco lleno a mitad de la siembra');
+    });
+
+    initSources(() => db);
+
+    // La pantalla Datos pinta su error de almacenamiento, no una lista vacia que
+    // aparentaria una instalacion sana sin ejemplo.
+    expect(getSnapshot().status).toBe('error');
+    // Y la base no quedo a medias: el siguiente arranque la crea entera.
+    expect(db.executeSync('PRAGMA user_version').rows[0].user_version).toBe(0);
+  });
+});
+

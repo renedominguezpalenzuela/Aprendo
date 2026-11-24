@@ -166,15 +166,6 @@ export function enableExampleSeedForTests(fn = seedExampleDeck) {
   seed = fn;
 }
 
-/**
- * La siembra vigente. Solo para el test que comprueba que la de produccion es
- * `seedExampleDeck` (DD-023, riesgo 1).
- *
- * @returns {((db: Driver, now: number) => void) | null}
- */
-export function currentSeedForTests() {
-  return seed;
-}
 
 /**
  * Lleva la base de su version actual a SCHEMA_VERSION.
