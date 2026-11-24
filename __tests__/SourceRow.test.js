@@ -377,3 +377,104 @@ describe('aviso de desenlace (REQ-043, REQ-060)', () => {
     expect(notice.props.accessibilityLiveRegion).toBe('polite');
   });
 });
+
+describe('SourceRow: el mazo de ejemplo (EJEMPLO-003)', () => {
+  const EXAMPLE = {
+    id: 9,
+    name: 'Ejemplo: El sistema solar',
+    urlOriginal: null,
+    urlCsv: null,
+    isActive: false,
+    isExample: true,
+    createdAt: 0,
+    lastSyncedAt: null,
+  };
+
+  /** Un desenlace real de actualizacion, el mismo que pinta una fila normal. */
+  const RESULT = {
+    phase: 'result',
+    sourceId: EXAMPLE.id,
+    sourceName: EXAMPLE.name,
+    saved: 20,
+    skippedImages: 0,
+    failedImages: 0,
+    warnings: [],
+  };
+
+  const renderExample = (props = {}) => render({source: EXAMPLE, ...props});
+
+  it('dice "Ejemplo incluido en la app" en lugar de la URL', () => {
+    const shown = texts(renderExample());
+
+    expect(shown).toContain(EXAMPLE.name);
+    expect(shown).toContain(ROW.exampleLabel);
+  });
+
+  it('no dice "Nunca actualizada" ni una fecha', () => {
+    const summary = {count: 20, bytes: 2048, lastSyncedAt: null};
+
+    // La misma fila sin marcar como ejemplo SI lo diria: el test mira la regla.
+    expect(texts(renderExample({source: {...EXAMPLE, isExample: false}, summary})))
+      .toContain(NEVER_SYNCED);
+    expect(texts(renderExample({summary}))).not.toContain(NEVER_SYNCED);
+  });
+
+  it('no ofrece Actualizar ni Editar', () => {
+    const renderer = renderExample();
+
+    expect(button(renderer, l => l === `${SYNC.action} ${EXAMPLE.name}`)).toBeUndefined();
+    expect(button(renderer, l => l === `${ROW.edit} ${EXAMPLE.name}`)).toBeUndefined();
+  });
+
+  it('se activa y se borra con confirmacion, como cualquiera', () => {
+    const onActivate = jest.fn();
+    const onRemove = jest.fn();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const renderer = renderExample({onActivate, onRemove});
+
+    expect(texts(renderer)).toContain(ROW.activate.toUpperCase());
+
+    act(() => {
+      button(
+        renderer,
+        l => l.includes(EXAMPLE.name) && l !== `${ROW.remove} ${EXAMPLE.name}`,
+      ).props.onPress();
+    });
+    expect(onActivate).toHaveBeenCalledWith(EXAMPLE.id);
+
+    act(() => {
+      button(renderer, l => l === `${ROW.remove} ${EXAMPLE.name}`).props.onPress();
+    });
+    const destructive = alert.mock.calls[0][2].find(b => b.style === 'destructive');
+    destructive.onPress();
+    alert.mockRestore();
+
+    expect(onRemove).toHaveBeenCalledWith(EXAMPLE.id);
+  });
+
+  it('activo dice Test Activo', () => {
+    expect(texts(renderExample({source: {...EXAMPLE, isActive: true}}))).toContain(
+      ROW.active.toUpperCase(),
+    );
+  });
+
+  it('sigue mostrando el tamano del mazo (deck-sync REQ-014)', () => {
+    const shown = texts(
+      renderExample({summary: {count: 20, bytes: 1024 * 1024, lastSyncedAt: null}}),
+    ).join(' ');
+
+    expect(shown).toContain('20 preguntas');
+    expect(shown).toContain('1 MB');
+  });
+
+  it('no muestra avisos de actualizacion aunque le llegue un desenlace', () => {
+    // Con la fila normal, este mismo estado SI pinta el aviso.
+    expect(
+      texts(renderExample({source: {...EXAMPLE, isExample: false}, syncState: RESULT})).join(' '),
+    ).toContain('20 preguntas');
+    expect(texts(renderExample({syncState: RESULT}))).not.toContain(
+      SYNC.dismiss.toUpperCase(),
+    );
+    expect(texts(renderExample({syncState: RESULT})).join(' ')).not.toContain('guardadas');
+  });
+});

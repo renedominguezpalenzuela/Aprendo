@@ -37,6 +37,9 @@ export const ROW = {
   activate: 'Activar Test',
   edit: 'Editar',
   remove: 'Borrar',
+  // Lo que dice la fila del mazo de ejemplo en lugar de la URL, que no tiene
+  // (EJEMPLO-003).
+  exampleLabel: 'Ejemplo incluido en la app',
 };
 
 /**

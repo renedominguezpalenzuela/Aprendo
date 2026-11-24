@@ -54,11 +54,16 @@ export function SourceRow({
 }) {
   const {isActive} = source;
 
+  // El mazo de ejemplo viene dentro de la app: no tiene hoja, asi que no hay URL
+  // que mostrar, nada que actualizar ni que editar, y "Nunca actualizada" seria
+  // falso. Se activa y se borra como cualquiera (EJEMPLO-003).
+  const isExample = source.isExample === true;
+
   // La fecha sale del resumen si lo hay, y si no de la propia fuente: las dos la
   // traen, y el resumen es el que esta recien releido tras una actualizacion.
   const lastSyncedAt = summary?.lastSyncedAt ?? source.lastSyncedAt ?? null;
   const size = deckSizeLabel(summary);
-  const notice = syncNotice(syncState);
+  const notice = isExample ? null : syncNotice(syncState);
 
   const confirmRemove = () => {
     const copy = removeConfirmation(source.name);
@@ -88,7 +93,7 @@ export function SourceRow({
           // distingue dos fuentes del mismo documento, y truncarlo por la cola
           // las dejaria identicas en pantalla (REQ-026).
           ellipsizeMode="middle">
-          {source.urlOriginal}
+          {isExample ? ROW.exampleLabel : source.urlOriginal}
         </Text>
 
         {/*
@@ -98,7 +103,9 @@ export function SourceRow({
           sistema al maximo no caben en una (REQ-082).
         */}
         <View style={styles.meta}>
-          <Text style={styles.metaText}>{lastSyncedLabel(lastSyncedAt)}</Text>
+          {isExample ? null : (
+            <Text style={styles.metaText}>{lastSyncedLabel(lastSyncedAt)}</Text>
+          )}
           {size == null ? null : <Text style={styles.metaText}>{size}</Text>}
         </View>
       </View>
@@ -163,27 +170,31 @@ export function SourceRow({
             fuente que no es la activa es un caso deseado —preparar mazos en casa
             antes de salir sin cobertura—.
           */}
-          <Pressable
-            onPress={() => onSync(source)}
-            disabled={syncBusy}
-            accessibilityRole="button"
-            accessibilityState={{disabled: syncBusy}}
-            accessibilityLabel={`${SYNC.action} ${source.name}`}
-            hitSlop={8}
-            style={({pressed}) => pressed && styles.pressed}>
-            <Text style={[styles.secondaryLabel, syncBusy && styles.disabledLabel]}>
-              {SYNC.action.toUpperCase()}
-            </Text>
-          </Pressable>
+          {isExample ? null : (
+            <Pressable
+              onPress={() => onSync(source)}
+              disabled={syncBusy}
+              accessibilityRole="button"
+              accessibilityState={{disabled: syncBusy}}
+              accessibilityLabel={`${SYNC.action} ${source.name}`}
+              hitSlop={8}
+              style={({pressed}) => pressed && styles.pressed}>
+              <Text style={[styles.secondaryLabel, syncBusy && styles.disabledLabel]}>
+                {SYNC.action.toUpperCase()}
+              </Text>
+            </Pressable>
+          )}
 
-          <Pressable
-            onPress={() => onEdit(source)}
-            accessibilityRole="button"
-            accessibilityLabel={`${ROW.edit} ${source.name}`}
-            hitSlop={8}
-            style={({pressed}) => pressed && styles.pressed}>
-            <Text style={styles.secondaryLabel}>{ROW.edit.toUpperCase()}</Text>
-          </Pressable>
+          {isExample ? null : (
+            <Pressable
+              onPress={() => onEdit(source)}
+              accessibilityRole="button"
+              accessibilityLabel={`${ROW.edit} ${source.name}`}
+              hitSlop={8}
+              style={({pressed}) => pressed && styles.pressed}>
+              <Text style={styles.secondaryLabel}>{ROW.edit.toUpperCase()}</Text>
+            </Pressable>
+          )}
 
           <Pressable
             onPress={confirmRemove}
