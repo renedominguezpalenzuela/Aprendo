@@ -22,8 +22,12 @@ export const FORM = {
   namePlaceholder: 'Aprendiz',
   urlLabel: 'Dirección de la hoja',
   urlPlaceholder: 'https://docs.google.com/spreadsheets/...',
-  submitAdd: 'Añadir',
-  submitEdit: 'Guardar',
+  // Despliega el formulario de alta (DELTA-001, DELTA-002). No guarda nada.
+  open: 'Añadir',
+  openHint: 'Despliega el formulario para añadir una fuente',
+  // La accion que guarda, en alta y en edicion: `Añadir` ya es el boton que
+  // despliega, y dos palabras para lo mismo confundian.
+  submit: 'Guardar',
   cancel: 'Cancelar',
 };
 

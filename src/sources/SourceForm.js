@@ -1,8 +1,8 @@
 /**
  * Formulario de alta y de edicion de una fuente.
  *
- * El mismo componente sirve para las dos cosas: con `initial` arranca relleno y
- * la accion dice Guardar; sin ella, vacio y dice Anadir. Son el mismo formulario
+ * El mismo componente sirve para las dos cosas: con `initial` arranca relleno;
+ * sin ella, vacio. La accion dice Guardar en los dos casos. Son el mismo formulario
  * con los mismos campos y las mismas validaciones, y duplicarlo solo garantizaba
  * que las validaciones se separasen con el tiempo.
  *
@@ -35,10 +35,12 @@ import {
  * @param {(input: {name: string, url: string}) => {ok: boolean, reason?: string}} props.onSubmit
  *   Devuelve el resultado del repositorio: la unicidad del nombre no se puede
  *   comprobar aca, solo la impone la base (DD-007).
- * @param {() => void} [props.onCancel]  Solo en modo edicion.
+ * @param {() => void} [props.onCancel]  Si llega, se ofrece Cancelar, en alta
+ *   y en edicion. Quien decide si se puede cancelar es la pantalla (DELTA-004).
+ * @param {boolean} [props.autoFocus]  Enfoca el nombre al montar (DD-018).
  * @returns {React.ReactElement}
  */
-export function SourceForm({initial = null, onSubmit, onCancel}) {
+export function SourceForm({initial = null, onSubmit, onCancel, autoFocus = false}) {
   const isEditing = initial != null;
 
   const [name, setName] = useState(initial?.name ?? '');
@@ -102,8 +104,6 @@ export function SourceForm({initial = null, onSubmit, onCancel}) {
     }
   };
 
-  const submitLabel = isEditing ? FORM.submitEdit : FORM.submitAdd;
-
   return (
     <View style={styles.form}>
       <Field
@@ -116,6 +116,7 @@ export function SourceForm({initial = null, onSubmit, onCancel}) {
         isFocused={focused === 'name'}
         error={errors.name}
         maxLength={MAX_NAME_LENGTH}
+        autoFocus={autoFocus}
         autoCapitalize="sentences"
       />
 
@@ -141,12 +142,12 @@ export function SourceForm({initial = null, onSubmit, onCancel}) {
         <Pressable
           onPress={handleSubmit}
           accessibilityRole="button"
-          accessibilityLabel={submitLabel}
+          accessibilityLabel={FORM.submit}
           style={({pressed}) => [styles.submit, pressed && styles.pressed]}>
-          <Text style={styles.submitLabel}>{submitLabel.toUpperCase()}</Text>
+          <Text style={styles.submitLabel}>{FORM.submit.toUpperCase()}</Text>
         </Pressable>
 
-        {isEditing && onCancel != null && (
+        {onCancel != null && (
           <Pressable
             onPress={onCancel}
             accessibilityRole="button"
@@ -156,6 +157,36 @@ export function SourceForm({initial = null, onSubmit, onCancel}) {
           </Pressable>
         )}
       </View>
+    </View>
+  );
+}
+
+/**
+ * Boton que despliega el formulario de alta (DELTA-001, DELTA-002).
+ *
+ * Vive aca porque comparte el aspecto de la accion principal del formulario, y
+ * ocupa su mismo sitio: con el mismo margen que el formulario, el boton queda
+ * donde aparecera Guardar y la lista no salta de lado al desplegar.
+ *
+ * `expanded: false` le dice al lector de pantalla que despliega algo. Una vez
+ * desplegado el boton deja de existir, y el anuncio lo da el foco en el campo
+ * nombre (DD-018).
+ *
+ * @param {{onPress: () => void}} props
+ * @returns {React.ReactElement}
+ */
+export function AddSourceButton({onPress}) {
+  return (
+    <View style={styles.collapsed}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={FORM.open}
+        accessibilityHint={FORM.openHint}
+        accessibilityState={{expanded: false}}
+        style={({pressed}) => [styles.submit, pressed && styles.pressed]}>
+        <Text style={styles.submitLabel}>{FORM.open.toUpperCase()}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -206,6 +237,12 @@ const styles = StyleSheet.create({
     paddingTop: 26,
     paddingBottom: 18,
     gap: 18,
+  },
+  collapsed: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingTop: 26,
+    paddingBottom: 18,
   },
   field: {
     gap: 7,

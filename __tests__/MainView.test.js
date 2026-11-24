@@ -219,7 +219,7 @@ describe('MainView: navegacion entre vistas', () => {
     press(renderer, 'Abrir menú');
     press(renderer, 'Datos');
 
-    expect(texts(renderer)).toContain(FORM.submitAdd.toUpperCase());
+    expect(texts(renderer)).toContain(FORM.submit.toUpperCase());
     expect(renderer.root.findByType(SideMenu).props.isOpen).toBe(false);
   });
 
@@ -241,7 +241,7 @@ describe('MainView: navegacion entre vistas', () => {
 
     press(renderer, EMPTY_STATE.action);
 
-    expect(texts(renderer)).toContain(FORM.submitAdd.toUpperCase());
+    expect(texts(renderer)).toContain(FORM.submit.toUpperCase());
   });
 
   // REQ-051 + DD-003: cada vista titula con su propio nombre. Se mira el titulo

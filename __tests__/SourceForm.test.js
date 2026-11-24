@@ -10,7 +10,7 @@ import React from 'react';
 import {Pressable, Text, TextInput} from 'react-native';
 import {act, create} from 'react-test-renderer';
 
-import {SourceForm} from '../src/sources/SourceForm';
+import {AddSourceButton, SourceForm} from '../src/sources/SourceForm';
 import {
   FORM,
   NAME_ERROR,
@@ -72,7 +72,7 @@ describe('SourceForm', () => {
     const renderer = render();
 
     expect(inputs(renderer)).toHaveLength(2);
-    expect(texts(renderer)).toContain(FORM.submitAdd.toUpperCase());
+    expect(texts(renderer)).toContain(FORM.submit.toUpperCase());
   });
 
   it('el campo de URL no capitaliza ni autocorrige (REQ-013b)', () => {
@@ -96,7 +96,7 @@ describe('SourceForm', () => {
     const renderer = render({onSubmit});
 
     fill(renderer, {name: '  Aprendiz ', url: `  ${SHEET}  `});
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     expect(onSubmit).toHaveBeenCalledWith({name: 'Aprendiz', url: SHEET});
   });
@@ -106,7 +106,7 @@ describe('SourceForm', () => {
     const renderer = render({onSubmit});
 
     fill(renderer, {name: '', url: 'hola'});
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -115,7 +115,7 @@ describe('SourceForm', () => {
     const renderer = render();
 
     fill(renderer, {name: '   ', url: 'hola'});
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     const rendered = texts(renderer);
     expect(rendered).toContain(NAME_ERROR.EMPTY);
@@ -129,7 +129,7 @@ describe('SourceForm', () => {
       name: 'Aprendiz',
       url: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7/pubhtml',
     });
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     expect(texts(renderer)).toContain(URL_ERROR.PUBLISHED_URL);
   });
@@ -138,7 +138,7 @@ describe('SourceForm', () => {
     const renderer = render();
 
     fill(renderer, {name: 'Aprendiz', url: 'hola'});
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     const [nameInput, urlInput] = inputs(renderer);
     expect(nameInput.props.accessibilityLabel).toBe(FORM.nameLabel);
@@ -149,7 +149,7 @@ describe('SourceForm', () => {
     const renderer = render({onSubmit: () => ({ok: true})});
 
     fill(renderer, {name: 'Aprendiz', url: SHEET});
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     const [nameInput, urlInput] = inputs(renderer);
     expect(nameInput.props.value).toBe('');
@@ -164,7 +164,7 @@ describe('SourceForm', () => {
     });
 
     fill(renderer, {name: 'Aprendiz', url: SHEET});
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     const [nameInput, urlInput] = inputs(renderer);
     expect(nameInput.props.value).toBe('Aprendiz');
@@ -183,7 +183,7 @@ describe('SourceForm: motivos que no se pueden anticipar', () => {
     const renderer = render({onSubmit: () => ({ok: false, reason})});
 
     fill(renderer, {name: 'Aprendiz', url: SHEET});
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     expect(texts(renderer)).toContain(expected);
   });
@@ -194,7 +194,7 @@ describe('SourceForm: motivos que no se pueden anticipar', () => {
     });
 
     fill(renderer, {name: 'Aprendiz', url: SHEET});
-    press(renderer, FORM.submitAdd);
+    press(renderer, FORM.submit);
 
     expect(texts(renderer)).toContain(SUBMIT_ERROR_FALLBACK);
   });
@@ -216,21 +216,34 @@ describe('SourceForm en modo edicion', () => {
 
     expect(nameInput.props.value).toBe('Aprendiz');
     expect(urlInput.props.value).toBe(SHEET);
-    expect(texts(renderer)).toContain(FORM.submitEdit.toUpperCase());
-    expect(texts(renderer)).not.toContain(FORM.submitAdd.toUpperCase());
+    expect(texts(renderer)).toContain(FORM.submit.toUpperCase());
   });
 
-  it('ofrece cancelar y NO lo ofrece al anadir', () => {
-    expect(texts(render({initial, onCancel: () => {}}))).toContain(
-      FORM.cancel.toUpperCase(),
-    );
-    expect(texts(render())).not.toContain(FORM.cancel.toUpperCase());
+  it('ofrece cancelar si y solo si llega onCancel, tambien en alta (DELTA-003)', () => {
+    const cancel = FORM.cancel.toUpperCase();
+
+    expect(texts(render({initial, onCancel: () => {}}))).toContain(cancel);
+    expect(texts(render({onCancel: () => {}}))).toContain(cancel);
+    expect(texts(render({initial}))).not.toContain(cancel);
+    expect(texts(render())).not.toContain(cancel);
+  });
+
+  it('cancelar llama a onCancel y no envia nada', () => {
+    const onCancel = jest.fn();
+    const onSubmit = jest.fn(() => ({ok: true}));
+    const renderer = render({onCancel, onSubmit});
+
+    fill(renderer, {name: 'Aprendiz', url: SHEET});
+    press(renderer, FORM.cancel);
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('no vacia los campos al guardar: se sigue editando lo mismo', () => {
     const renderer = render({initial, onSubmit: () => ({ok: true})});
 
-    press(renderer, FORM.submitEdit);
+    press(renderer, FORM.submit);
 
     expect(inputs(renderer)[0].props.value).toBe('Aprendiz');
   });
@@ -270,5 +283,57 @@ describe('SourceForm en modo edicion', () => {
     });
 
     expect(inputs(renderer)[0].props.value).toBe('Aprendiz editado');
+  });
+});
+
+describe('SourceForm: accion y foco (delta formulario-plegable)', () => {
+  it('en alta la accion tambien dice Guardar, no Añadir (DELTA-002)', () => {
+    const shown = texts(render());
+
+    expect(shown).toContain(FORM.submit.toUpperCase());
+    expect(shown).not.toContain(FORM.open.toUpperCase());
+  });
+
+  it('enfoca el nombre solo si se pide (DD-018)', () => {
+    const [nameWith, urlWith] = inputs(render({autoFocus: true}));
+    const [nameWithout] = inputs(render());
+
+    expect(nameWith.props.autoFocus).toBe(true);
+    expect(urlWith.props.autoFocus).toBeFalsy();
+    expect(nameWithout.props.autoFocus).toBe(false);
+  });
+});
+
+describe('AddSourceButton', () => {
+  function renderButton(onPress = () => {}) {
+    let renderer;
+    act(() => {
+      renderer = create(<AddSourceButton onPress={onPress} />);
+    });
+    return renderer;
+  }
+
+  it('dice Añadir y no pinta ningun campo (DELTA-001)', () => {
+    const renderer = renderButton();
+
+    expect(texts(renderer)).toEqual([FORM.open.toUpperCase()]);
+    expect(renderer.root.findAllByType(TextInput)).toHaveLength(0);
+  });
+
+  it('se anuncia como boton que despliega, con su pista (DELTA-006)', () => {
+    const button = renderButton().root.findByType(Pressable);
+
+    expect(button.props.accessibilityRole).toBe('button');
+    expect(button.props.accessibilityLabel).toBe(FORM.open);
+    expect(button.props.accessibilityHint).toBe(FORM.openHint);
+    expect(button.props.accessibilityState).toEqual({expanded: false});
+  });
+
+  it('pulsarlo llama a onPress', () => {
+    const onPress = jest.fn();
+
+    press(renderButton(onPress), FORM.open);
+
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

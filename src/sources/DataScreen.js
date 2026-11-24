@@ -124,7 +124,7 @@ export function DataScreen() {
           <SourceForm
             initial={editing}
             onSubmit={handleSubmit}
-            onCancel={() => setEditingId(null)}
+            onCancel={editing ? () => setEditingId(null) : undefined}
           />
         }
         ListEmptyComponent={

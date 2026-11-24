@@ -117,7 +117,7 @@ describe('DataScreen', () => {
     const renderer = render();
 
     fill(renderer, {name: 'Aprendiz', url: SHEET});
-    press(renderer, l => l === FORM.submitAdd);
+    press(renderer, l => l === FORM.submit);
 
     expect(texts(renderer)).toContain('Aprendiz');
     expect(texts(renderer)).not.toContain(EMPTY_LIST.title);
@@ -127,7 +127,7 @@ describe('DataScreen', () => {
     const renderer = render();
 
     fill(renderer, {name: 'Aprendiz', url: SHEET});
-    press(renderer, l => l === FORM.submitAdd);
+    press(renderer, l => l === FORM.submit);
 
     expect(texts(renderer)).toContain(ROW.active.toUpperCase());
   });
@@ -166,7 +166,7 @@ describe('DataScreen', () => {
 
     const [nameInput] = renderer.root.findAllByType(TextInput);
     expect(nameInput.props.value).toBe('Aprendiz');
-    expect(texts(renderer)).toContain(FORM.submitEdit.toUpperCase());
+    expect(texts(renderer)).toContain(FORM.cancel.toUpperCase());
   });
 
   it('guardar la edicion vuelve a modo alta', () => {
@@ -176,10 +176,11 @@ describe('DataScreen', () => {
 
     press(renderer, l => l === `${ROW.edit} Aprendiz`);
     fill(renderer, {name: 'Primer Grado', url: SHEET});
-    press(renderer, l => l === FORM.submitEdit);
+    press(renderer, l => l === FORM.submit);
 
     expect(texts(renderer)).toContain('Primer Grado');
-    expect(texts(renderer)).toContain(FORM.submitAdd.toUpperCase());
+    expect(texts(renderer)).not.toContain(FORM.cancel.toUpperCase());
+    expect(renderer.root.findAllByType(TextInput)[0].props.value).toBe('');
   });
 
   it('cancelar la edicion vuelve a modo alta sin tocar nada', () => {
@@ -190,7 +191,8 @@ describe('DataScreen', () => {
     press(renderer, l => l === `${ROW.edit} Aprendiz`);
     press(renderer, l => l === FORM.cancel);
 
-    expect(texts(renderer)).toContain(FORM.submitAdd.toUpperCase());
+    expect(texts(renderer)).not.toContain(FORM.cancel.toUpperCase());
+    expect(renderer.root.findAllByType(TextInput)[0].props.value).toBe('');
     expect(texts(renderer)).toContain('Aprendiz');
   });
 
