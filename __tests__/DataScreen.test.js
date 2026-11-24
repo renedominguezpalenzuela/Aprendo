@@ -4,14 +4,15 @@
  * Corre contra la base real de `node:sqlite`: la pantalla, el store y el
  * repositorio en la misma cadena, sin mockear ninguna capa intermedia.
  *
- * Cubre REQ-005, REQ-010, REQ-019, REQ-021, REQ-024 y REQ-025 de data-sources, y
- * el cableado de la actualizacion de deck-sync (REQ-010 a REQ-014).
+ * Cubre REQ-005, REQ-010, REQ-019, REQ-021, REQ-024 y REQ-025 de data-sources, el
+ * delta formulario-plegable (DELTA-001 a DELTA-005, REQ-016 modificado) y el
+ * cableado de la actualizacion de deck-sync (REQ-010 a REQ-014).
  *
  * @format
  */
 
 import React from 'react';
-import {FlatList, Pressable, ScrollView, Text, TextInput} from 'react-native';
+import {Alert, FlatList, Pressable, ScrollView, Text, TextInput} from 'react-native';
 import {act, create} from 'react-test-renderer';
 
 import {DataScreen} from '../src/sources/DataScreen';
@@ -152,8 +153,8 @@ describe('DataScreen', () => {
 
     press(renderer, l => l === 'Activar el test B');
 
-    // La pantalla sigue siendo esta: formulario y lista intactos.
-    expect(renderer.root.findAllByType(TextInput)).toHaveLength(2);
+    // La pantalla sigue siendo esta: el boton Anadir y la lista intactos.
+    expect(texts(renderer)).toContain(FORM.open.toUpperCase());
     expect(texts(renderer)).toContain('A');
   });
 
@@ -169,7 +170,7 @@ describe('DataScreen', () => {
     expect(texts(renderer)).toContain(FORM.cancel.toUpperCase());
   });
 
-  it('guardar la edicion vuelve a modo alta', () => {
+  it('guardar la edicion con exito oculta el formulario (REQ-016)', () => {
     addSource({name: 'Aprendiz', url: SHEET}, 1);
     refresh();
     const renderer = render();
@@ -179,11 +180,11 @@ describe('DataScreen', () => {
     press(renderer, l => l === FORM.submit);
 
     expect(texts(renderer)).toContain('Primer Grado');
-    expect(texts(renderer)).not.toContain(FORM.cancel.toUpperCase());
-    expect(renderer.root.findAllByType(TextInput)[0].props.value).toBe('');
+    expect(renderer.root.findAllByType(TextInput)).toHaveLength(0);
+    expect(texts(renderer)).toContain(FORM.open.toUpperCase());
   });
 
-  it('cancelar la edicion vuelve a modo alta sin tocar nada', () => {
+  it('cancelar la edicion oculta el formulario sin tocar nada', () => {
     addSource({name: 'Aprendiz', url: SHEET}, 1);
     refresh();
     const renderer = render();
@@ -191,8 +192,8 @@ describe('DataScreen', () => {
     press(renderer, l => l === `${ROW.edit} Aprendiz`);
     press(renderer, l => l === FORM.cancel);
 
-    expect(texts(renderer)).not.toContain(FORM.cancel.toUpperCase());
-    expect(renderer.root.findAllByType(TextInput)[0].props.value).toBe('');
+    expect(renderer.root.findAllByType(TextInput)).toHaveLength(0);
+    expect(texts(renderer)).toContain(FORM.open.toUpperCase());
     expect(texts(renderer)).toContain('Aprendiz');
   });
 
@@ -200,6 +201,165 @@ describe('DataScreen', () => {
     const lista = render().root.findByType(FlatList);
 
     expect(lista.props.keyboardShouldPersistTaps).toBe('handled');
+  });
+});
+
+describe('DataScreen: formulario plegable (delta formulario-plegable)', () => {
+  beforeEach(() => {
+    initSources(makeMemoryDriver());
+  });
+
+  function withSources(...names) {
+    names.forEach((name, i) => addSource({name, url: SHEET}, i + 1));
+    refresh();
+    return render();
+  }
+
+  const inputs = renderer => renderer.root.findAllByType(TextInput);
+  const shown = (renderer, label) => texts(renderer).includes(label.toUpperCase());
+
+  it('con fuentes arranca oculto: solo el boton Añadir (DELTA-001)', () => {
+    const renderer = withSources('Aprendiz');
+
+    expect(inputs(renderer)).toHaveLength(0);
+    expect(shown(renderer, FORM.open)).toBe(true);
+    expect(shown(renderer, FORM.submit)).toBe(false);
+    // La lista sigue debajo.
+    expect(texts(renderer)).toContain('Aprendiz');
+  });
+
+  it('Añadir despliega el formulario vacio con Guardar, Cancelar y el foco (DELTA-002)', () => {
+    const renderer = withSources('Aprendiz');
+
+    press(renderer, l => l === FORM.open);
+
+    const [nameInput, urlInput] = inputs(renderer);
+    expect(nameInput.props.value).toBe('');
+    expect(urlInput.props.value).toBe('');
+    expect(nameInput.props.autoFocus).toBe(true);
+    expect(shown(renderer, FORM.submit)).toBe(true);
+    expect(shown(renderer, FORM.cancel)).toBe(true);
+    expect(shown(renderer, FORM.open)).toBe(false);
+  });
+
+  it('Cancelar oculta, no guarda, y al reabrir esta vacio (DELTA-003)', () => {
+    const renderer = withSources('Aprendiz');
+
+    press(renderer, l => l === FORM.open);
+    fill(renderer, {name: 'Companero', url: SHEET});
+    press(renderer, l => l === FORM.cancel);
+
+    expect(inputs(renderer)).toHaveLength(0);
+    expect(texts(renderer)).not.toContain('Companero');
+
+    press(renderer, l => l === FORM.open);
+    expect(inputs(renderer)[0].props.value).toBe('');
+    expect(inputs(renderer)[1].props.value).toBe('');
+  });
+
+  it('sin fuentes sale desplegado, sin Cancelar y sin foco (DELTA-004, DD-018)', () => {
+    const renderer = render();
+
+    expect(inputs(renderer)).toHaveLength(2);
+    expect(shown(renderer, FORM.submit)).toBe(true);
+    expect(shown(renderer, FORM.cancel)).toBe(false);
+    expect(shown(renderer, FORM.open)).toBe(false);
+    expect(inputs(renderer)[0].props.autoFocus).toBe(false);
+    expect(texts(renderer)).toContain(EMPTY_LIST.title);
+  });
+
+  it('al borrar la ultima fuente se despliega solo (DELTA-004, DD-016)', () => {
+    const renderer = withSources('Aprendiz');
+    expect(inputs(renderer)).toHaveLength(0);
+
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    press(renderer, l => l === `${ROW.remove} Aprendiz`);
+    const destructive = alert.mock.calls[0][2].find(b => b.style === 'destructive');
+    act(() => {
+      destructive.onPress();
+    });
+    alert.mockRestore();
+
+    expect(texts(renderer)).toContain(EMPTY_LIST.title);
+    expect(inputs(renderer)).toHaveLength(2);
+    expect(shown(renderer, FORM.cancel)).toBe(false);
+  });
+
+  it('al añadir la primera fuente se oculta (DD-016)', () => {
+    const renderer = render();
+
+    fill(renderer, {name: 'Aprendiz', url: SHEET});
+    press(renderer, l => l === FORM.submit);
+
+    expect(texts(renderer)).toContain('Aprendiz');
+    expect(inputs(renderer)).toHaveLength(0);
+    expect(shown(renderer, FORM.open)).toBe(true);
+  });
+
+  it('guardar un alta con exito la mete en la lista y oculta (REQ-016)', () => {
+    const renderer = withSources('Aprendiz');
+
+    press(renderer, l => l === FORM.open);
+    fill(renderer, {name: 'Companero', url: SHEET});
+    press(renderer, l => l === FORM.submit);
+
+    expect(texts(renderer)).toContain('Companero');
+    expect(inputs(renderer)).toHaveLength(0);
+    expect(shown(renderer, FORM.open)).toBe(true);
+  });
+
+  it('si el alta falla sigue desplegado, con lo escrito y el error (REQ-016)', () => {
+    const renderer = withSources('Aprendiz');
+
+    press(renderer, l => l === FORM.open);
+    fill(renderer, {name: 'aprendiz', url: SHEET});
+    press(renderer, l => l === FORM.submit);
+
+    const [nameInput, urlInput] = inputs(renderer);
+    expect(nameInput.props.value).toBe('aprendiz');
+    expect(urlInput.props.value).toBe(SHEET);
+    expect(shown(renderer, FORM.submit)).toBe(true);
+    // El mensaje de nombre en uso queda asociado al campo (REQ-055).
+    expect(nameInput.props.accessibilityLabel).not.toBe(FORM.nameLabel);
+  });
+
+  it('Editar despliega relleno, con Cancelar y el foco (DELTA-005)', () => {
+    const renderer = withSources('Aprendiz');
+
+    press(renderer, l => l === `${ROW.edit} Aprendiz`);
+
+    const [nameInput, urlInput] = inputs(renderer);
+    expect(nameInput.props.value).toBe('Aprendiz');
+    expect(urlInput.props.value).toBe(SHEET);
+    expect(nameInput.props.autoFocus).toBe(true);
+    expect(shown(renderer, FORM.cancel)).toBe(true);
+  });
+
+  it('Editar con un alta a medias descarta lo escrito (DELTA-005)', () => {
+    const renderer = withSources('Aprendiz');
+
+    press(renderer, l => l === FORM.open);
+    fill(renderer, {name: 'Companero', url: SHEET});
+    press(renderer, l => l === `${ROW.edit} Aprendiz`);
+
+    expect(inputs(renderer)[0].props.value).toBe('Aprendiz');
+  });
+
+  it('borrar la fuente en edicion cierra el formulario', () => {
+    const renderer = withSources('Aprendiz', 'Companero');
+
+    press(renderer, l => l === `${ROW.edit} Companero`);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    press(renderer, l => l === `${ROW.remove} Companero`);
+    const destructive = alert.mock.calls[0][2].find(b => b.style === 'destructive');
+    act(() => {
+      destructive.onPress();
+    });
+    alert.mockRestore();
+
+    expect(texts(renderer)).not.toContain('Companero');
+    expect(inputs(renderer)).toHaveLength(0);
+    expect(shown(renderer, FORM.open)).toBe(true);
   });
 });
 

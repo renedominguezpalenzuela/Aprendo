@@ -1,7 +1,11 @@
 /**
  * Pantalla Datos: formulario arriba, lista de fuentes debajo, misma pantalla.
  *
- * Ver specs/features/data-sources/design.md seccion 2.8 y DD-010.
+ * El formulario esta oculto tras el boton Anadir mientras haya fuentes, y
+ * desplegado mientras no haya ninguna.
+ *
+ * Ver specs/features/data-sources/design.md seccion 2.8, DD-010 y la ampliacion
+ * del delta formulario-plegable (DD-015 a DD-019).
  *
  * @format
  */
@@ -20,9 +24,23 @@ import {useDeckSummaries} from '../decks/useDeck';
 import {useDeckSync, useIsSyncing} from '../decks/useDeckSync';
 import {COLOR, TYPE} from '../theme/masonTheme';
 import {DATABASE_ERROR, EMPTY_LIST} from './sourcesCopy';
-import {SourceForm} from './SourceForm';
+import {AddSourceButton, SourceForm} from './SourceForm';
 import {SourceRow} from './SourceRow';
 import {useSources} from './useSources';
+
+/**
+ * Modo del formulario. Un solo estado con tres valores, y no un `isOpen` mas un
+ * `editingId`: con dos variables existe "cerrado pero editando la 3", que no
+ * significa nada y que cada transicion tendria que acordarse de limpiar (DD-015).
+ *
+ * @typedef {{kind: 'closed'} | {kind: 'add'} | {kind: 'edit', id: number}} FormMode
+ */
+
+/** @type {FormMode} */
+const CLOSED = {kind: 'closed'};
+
+/** @type {FormMode} */
+const ADD = {kind: 'add'};
 
 /**
  * @returns {React.ReactElement}
@@ -36,25 +54,40 @@ export function DataScreen() {
   const sync = useDeckSync();
   const syncBusy = useIsSyncing();
 
-  // Fuente en edicion. Se guarda el ID y no el objeto: el store publica fuentes
-  // nuevas en cada refresco, y quedarse con una vieja mostraria datos rancios.
-  const [editingId, setEditingId] = useState(null);
+  // En edicion se guarda el ID y no el objeto: el store publica fuentes nuevas
+  // en cada refresco, y quedarse con una vieja mostraria datos rancios.
+  const [formMode, setFormMode] = useState(CLOSED);
 
   const sources = state.status === 'ready' ? state.sources : [];
-  const editing = sources.find(source => source.id === editingId) ?? null;
+
+  // Sin fuentes, lo unico que se puede hacer es anadir una: el formulario sale
+  // desplegado. Se DERIVA en cada render y no se escribe en `formMode` con un
+  // efecto, que pintaria primero un frame con la pantalla vacia y el boton. Y al
+  // anadir la primera, `formMode` sigue en `closed`, asi que se oculta solo
+  // (DD-016).
+  const isEmpty = sources.length === 0;
+  const mode = isEmpty ? ADD : formMode;
+
+  const editingId = mode.kind === 'edit' ? mode.id : null;
+  const editing =
+    editingId == null
+      ? null
+      : sources.find(source => source.id === editingId) ?? null;
+
+  const close = useCallback(() => setFormMode(CLOSED), []);
 
   const handleSubmit = useCallback(
     input => {
-      if (editingId == null) {
-        return add(input);
-      }
+      const result = editingId == null ? add(input) : update(editingId, input);
 
-      const result = update(editingId, input);
-
-      // Se sale del modo edicion tanto si fue bien como si la fila ya no
-      // existe: seguir editando una fuente borrada no lleva a ninguna parte.
-      if (result.ok !== false || result.reason === 'NOT_FOUND') {
-        setEditingId(null);
+      // Se oculta si fue bien (REQ-016). En edicion, tambien si la fila ya no
+      // existe: seguir editando una fuente borrada no lleva a ninguna parte. Con
+      // cualquier otro error se queda abierto, con lo escrito y el mensaje.
+      if (
+        result.ok !== false ||
+        (editingId != null && result.reason === 'NOT_FOUND')
+      ) {
+        setFormMode(CLOSED);
       }
 
       return result;
@@ -64,14 +97,19 @@ export function DataScreen() {
 
   const handleRemove = useCallback(
     id => {
-      // Si se borra la que se estaba editando, el formulario tiene que volver a
-      // modo alta o se quedaria editando una fila que ya no existe.
+      // Si se borra la que se estaba editando, el formulario se cierra o se
+      // quedaria editando una fila que ya no existe.
       if (id === editingId) {
-        setEditingId(null);
+        setFormMode(CLOSED);
       }
       remove(id);
     },
     [editingId, remove],
+  );
+
+  const handleEdit = useCallback(
+    source => setFormMode({kind: 'edit', id: source.id}),
+    [],
   );
 
   const renderItem = useCallback(
@@ -79,7 +117,7 @@ export function DataScreen() {
       <SourceRow
         source={item}
         onActivate={activate}
-        onEdit={source => setEditingId(source.id)}
+        onEdit={handleEdit}
         onRemove={handleRemove}
         onSync={sync.start}
         onDismissSync={sync.dismiss}
@@ -90,7 +128,7 @@ export function DataScreen() {
         syncBusy={syncBusy}
       />
     ),
-    [activate, handleRemove, summaries, sync.dismiss, sync.start, sync.state, syncBusy],
+    [activate, handleEdit, handleRemove, summaries, sync.dismiss, sync.start, sync.state, syncBusy],
   );
 
   if (state.status === 'error') {
@@ -121,11 +159,21 @@ export function DataScreen() {
         // deja de robar altura en cuanto estorba, que es justo donde REQ-019
         // aprieta.
         ListHeaderComponent={
-          <SourceForm
-            initial={editing}
-            onSubmit={handleSubmit}
-            onCancel={editing ? () => setEditingId(null) : undefined}
-          />
+          mode.kind === 'add' || editing != null ? (
+            <SourceForm
+              initial={editing}
+              onSubmit={handleSubmit}
+              // Sin fuentes no hay Cancelar: ocultarlo solo dejaria una
+              // pantalla vacia con un boton para volver a abrirlo (DELTA-004).
+              onCancel={isEmpty ? undefined : close}
+              // Solo si lo abrio el usuario. Al entrar sin fuentes, abrir el
+              // teclado sin que nadie lo pida tapa el texto de lista vacia
+              // (DD-018).
+              autoFocus={!isEmpty}
+            />
+          ) : (
+            <AddSourceButton onPress={() => setFormMode(ADD)} />
+          )
         }
         ListEmptyComponent={
           <View style={styles.notice}>
