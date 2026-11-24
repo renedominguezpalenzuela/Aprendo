@@ -103,12 +103,14 @@ describe('resolveColumns: por nombre (REQ-023)', () => {
 });
 
 describe('resolveColumns: la reserva por orden (REQ-024)', () => {
-  it('asume el orden con SEIS columnas y ninguna reconocible', () => {
+  it('asume el orden de la guia con SEIS columnas y ninguna reconocible', () => {
+    // Pregunta, Respuesta1, Respuesta2, Imagen Pregunta, ImagenRespuesta,
+    // FechaActualizacion: el orden del README y del CSV de ejemplo.
     const resolved = resolveColumns([
       'Question',
-      'Image',
       'Answer1',
       'Answer2',
+      'Image',
       'Img2',
       'Fecha',
     ]);
@@ -117,10 +119,27 @@ describe('resolveColumns: la reserva por orden (REQ-024)', () => {
     expect(resolved.assumedOrder).toBe(true);
     expect(resolved.columns).toMatchObject({
       question: 0,
-      imageQuestion: 1,
-      answer1: 2,
-      answer2: 3,
+      answer1: 1,
+      answer2: 2,
+      imageQuestion: 3,
       imageAnswer: 4,
+    });
+  });
+
+  it('con el orden asumido, cada celda va a su campo', () => {
+    const rows = [
+      ['Q', 'A1', 'A2', 'I1', 'I2', 'F'],
+      ['P', 'R1', 'R2', 'https://x/p.png', 'https://x/r.png', '2026'],
+    ];
+    const resolved = resolveColumns(rows[0]);
+    const [question] = toQuestions(rows, resolved.columns).questions;
+
+    expect(question).toMatchObject({
+      question: 'P',
+      answer1: 'R1',
+      answer2: 'R2',
+      imageQuestionUrl: 'https://x/p.png',
+      imageAnswerUrl: 'https://x/r.png',
     });
   });
 
@@ -281,8 +300,8 @@ describe('toQuestions: filas descartadas (REQ-026, REQ-027)', () => {
 describe('toQuestions: la primera fila es SIEMPRE cabecera (DD-010)', () => {
   it('no la guarda como pregunta ni con la reserva por orden', () => {
     const rows = [
-      ['Question', 'Image', 'Answer1', 'Answer2', 'Img2', 'Fecha'],
-      ['Real', '', 'Respuesta', '', '', ''],
+      ['Question', 'Answer1', 'Answer2', 'Image', 'Img2', 'Fecha'],
+      ['Real', 'Respuesta', '', '', '', ''],
     ];
 
     const {questions, assumedOrder} = readSheet(rows);

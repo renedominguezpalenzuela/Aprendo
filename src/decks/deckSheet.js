@@ -31,12 +31,20 @@ const KNOWN_COLUMNS = {
   fechaactualizacion: 'updatedAt',
 };
 
-/** El orden del fichero real. Solo se usa como reserva acotada (REQ-024). */
+/**
+ * El orden que se asume si ninguna cabecera se reconoce. Solo se usa como
+ * reserva acotada (REQ-024).
+ *
+ * Es el orden de la guia del README y de `ejemplos/sistema-solar.csv`: las dos
+ * respuestas juntas tras la pregunta, y las imagenes al final. Hasta el
+ * 2026-11-24 era el del fichero original, con la imagen de la pregunta en
+ * segundo lugar.
+ */
 const ASSUMED_ORDER = [
   'question',
-  'imageQuestion',
   'answer1',
   'answer2',
+  'imageQuestion',
   'imageAnswer',
   'updatedAt',
 ];
