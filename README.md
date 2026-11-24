@@ -14,6 +14,11 @@ Una **fuente** es una hoja de cálculo de Google con tus preguntas y respuestas.
 descarga, la guarda en el teléfono y te la muestra en tarjetas. Puedes tener varias (un quiz por
 fuente) y elegir cuál está activa.
 
+> **Para probar sin crear nada**, Aprendo trae de serie la fuente **Ejemplo: El sistema solar**,
+> con 20 preguntas. Entra en **Datos**, pulsa **Activar Test** en esa fila y vuelve a **Tarjetas**.
+> Funciona sin conexión, no se actualiza ni se edita, y puedes **Borrarla** cuando quieras: una
+> vez borrada no vuelve a aparecer.
+
 ### 1. Crea la hoja
 
 En [Google Sheets](https://sheets.google.com) crea una hoja nueva. La **fila 1** es la cabecera,
