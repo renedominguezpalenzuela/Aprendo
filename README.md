@@ -87,3 +87,17 @@ cd android && ./gradlew assembleRelease
 
 Sin ese archivo la compilación de release falla a propósito: nunca se firma con
 el keystore de depuración.
+
+## Licencia
+
+El código de Aprendo se publica bajo la
+[PolyForm Noncommercial License 1.0.0](LICENSE.md): puedes verlo, usarlo,
+modificarlo y compartirlo para **fines no comerciales** (uso personal, estudio,
+investigación, organizaciones educativas o sin ánimo de lucro). El uso comercial
+requiere un permiso aparte del autor.
+
+No es una licencia *open source* en el sentido de la OSI, sino *source-available*.
+
+Las dependencias y los recursos de terceros conservan sus propias licencias: React
+Native y las librerías de npm (MIT y similares) y las fuentes Cinzel, EB Garamond y
+Barlow Condensed (SIL Open Font License).
