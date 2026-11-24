@@ -5,12 +5,19 @@
  * NINGUN test comprueba cadenas de SQL: todos comprueban el estado de la base.
  *
  * Cubre REQ-012, REQ-014, REQ-015, REQ-017, REQ-018, REQ-021, REQ-022, REQ-031,
- * REQ-032, REQ-033 y REQ-035.
+ * REQ-032, REQ-033 y REQ-035, y las reglas del mazo de ejemplo (delta
+ * mazo-de-ejemplo: REQ-017, REQ-030 y REQ-035 modificados).
  *
  * @format
  */
 
-import {getDb, openDatabase, resetDatabaseForTests} from '../src/db/database';
+import {
+  enableExampleSeedForTests,
+  getDb,
+  openDatabase,
+  resetDatabaseForTests,
+} from '../src/db/database';
+import {EXAMPLE_NAME, seedExampleDeck} from '../src/sources/exampleDeck';
 import {
   insertPendingImage,
   insertPendingQuestion,
@@ -420,5 +427,115 @@ describe('editar la URL descarta el mazo (deck-sync REQ-008, DD-014)', () => {
     expect(source.name).toBe('Aprendiz');
     expect(source.urlOriginal).toContain('gid=1');
     expect(listQuestions(id)).toHaveLength(5);
+  });
+});
+
+describe('mazo de ejemplo (delta mazo-de-ejemplo)', () => {
+  // El ejemplo se siembra con created_at = 0: es la fuente MAS ANTIGUA, como en
+  // una instalacion real, donde se crea antes que ninguna. Con Date.now() seria
+  // la mas nueva y el test de REQ-035 pasaria aunque la regla no existiera.
+  beforeEach(() => {
+    resetDatabaseForTests();
+    enableExampleSeedForTests(db => seedExampleDeck(db, 0));
+    openDatabase(makeMemoryDriver());
+  });
+
+  const example = () => listSources().find(source => source.isExample);
+
+  it('se expone como isExample, sin URLs, inactivo y con sus 20 preguntas', () => {
+    const source = example();
+
+    expect(source).toMatchObject({
+      name: EXAMPLE_NAME,
+      isExample: true,
+      isActive: false,
+      urlOriginal: null,
+      urlCsv: null,
+      lastSyncedAt: null,
+    });
+    expect(listQuestions(source.id)).toHaveLength(20);
+  });
+
+  it('las fuentes de hoja dicen isExample: false', () => {
+    add('Geografia');
+
+    expect(listSources().find(s => s.name === 'Geografia').isExample).toBe(false);
+  });
+
+  it('inactivo va al final de la lista, detras de las propias', () => {
+    add('Geografia');
+    add('Historia');
+    activateSource(listSources().find(s => s.name === 'Historia').id);
+
+    expect(listSources().map(s => s.name)).toEqual([
+      'Historia',
+      'Geografia',
+      EXAMPLE_NAME,
+    ]);
+  });
+
+  it('activo va primero, como cualquier fuente', () => {
+    add('Geografia');
+    activateSource(example().id);
+
+    expect(listSources()[0].name).toBe(EXAMPLE_NAME);
+  });
+
+  it('con el ejemplo inactivo, la primera fuente propia entra activa (REQ-017)', () => {
+    add('Geografia');
+
+    expect(readActiveSource().name).toBe('Geografia');
+  });
+
+  it('con el ejemplo activo, la fuente nueva entra inactiva (REQ-017)', () => {
+    activateSource(example().id);
+    add('Geografia');
+
+    expect(readActiveSource().name).toBe(EXAMPLE_NAME);
+  });
+
+  it('borrar la activa activa otra propia, nunca el ejemplo (REQ-035)', () => {
+    add('Geografia');
+    add('Historia');
+    removeSource(readActiveSource().id);
+
+    expect(readActiveSource().name).toBe('Historia');
+  });
+
+  it('si solo queda el ejemplo, se queda sin activa (REQ-035)', () => {
+    const {id} = add('Geografia');
+    removeSource(id);
+
+    expect(readActiveSource()).toBeNull();
+    expect(listSources().map(s => s.name)).toEqual([EXAMPLE_NAME]);
+  });
+
+  it('no se edita: updateSource devuelve NOT_FOUND y no lo toca (REQ-030)', () => {
+    const {id} = example();
+
+    expect(updateSource(id, {name: 'Otro', url: `${SHEET}/edit`})).toEqual({
+      ok: false,
+      reason: 'NOT_FOUND',
+    });
+    expect(example()).toMatchObject({name: EXAMPLE_NAME, urlOriginal: null});
+    expect(listQuestions(id)).toHaveLength(20);
+  });
+
+  it('borrarlo se lleva sus preguntas y no vuelve al reabrir (EJEMPLO-004)', () => {
+    const {id} = example();
+    const db = getDb();
+
+    removeSource(id);
+    expect(listQuestions(id)).toEqual([]);
+
+    resetDatabaseForTests();
+    enableExampleSeedForTests();
+    openDatabase(() => db);
+
+    expect(listSources()).toEqual([]);
+  });
+
+  it('su nombre queda ocupado: una fuente propia no puede llamarse igual', () => {
+    expect(add(EXAMPLE_NAME)).toEqual({ok: false, reason: 'DUPLICATE_NAME'});
   });
 });

@@ -22,9 +22,10 @@ import {nameKey, toCsvUrl} from './sourceUrl';
  * @typedef {Object} Source
  * @property {number}  id
  * @property {string}  name
- * @property {string}  urlOriginal
- * @property {string}  urlCsv
+ * @property {string|null}  urlOriginal  null en el mazo de ejemplo
+ * @property {string|null}  urlCsv       null en el mazo de ejemplo
  * @property {boolean} isActive
+ * @property {boolean} isExample  El mazo de ejemplo que trae la app (DD-021)
  * @property {number}  createdAt
  * @property {number|null} lastSyncedAt
  *   Milisegundos epoch de la ultima actualizacion con exito, o `null` si nunca se
@@ -34,7 +35,7 @@ import {nameKey, toCsvUrl} from './sourceUrl';
 /** @typedef {{name: string, url: string}} SourceInput */
 
 const COLUMNS =
-  'id, name, url_original, url_csv, is_active, created_at, last_synced_at';
+  'id, name, url_original, url_csv, is_active, created_at, last_synced_at, kind';
 
 /**
  * Detecta el rechazo del indice unico de `name_key`.
@@ -57,13 +58,18 @@ function isDuplicateName(error) {
  * @returns {Source}
  */
 function toSource(row) {
+  // El ejemplo guarda sus URLs como cadena vacia porque las columnas son NOT
+  // NULL. Hacia fuera son null: "no tiene hoja", que es lo que significa.
+  const isExample = row.kind === 'example';
+
   return {
     id: row.id,
     name: row.name,
-    urlOriginal: row.url_original,
-    urlCsv: row.url_csv,
+    urlOriginal: isExample ? null : row.url_original,
+    urlCsv: isExample ? null : row.url_csv,
     // La conversion 0/1 -> boolean vive SOLO aca.
     isActive: row.is_active === 1,
+    isExample,
     createdAt: row.created_at,
     lastSyncedAt: row.last_synced_at ?? null,
   };
@@ -79,7 +85,10 @@ function toSource(row) {
  */
 export function listSources() {
   const {rows} = getDb().executeSync(
-    `SELECT ${COLUMNS} FROM sources ORDER BY is_active DESC, created_at ASC, id ASC`,
+    // El ejemplo inactivo va al final, detras de las fuentes propias: son las que
+    // mas le importan al usuario (DD-022). Activo, va primero como cualquiera.
+    `SELECT ${COLUMNS} FROM sources
+      ORDER BY is_active DESC, (kind = 'example') ASC, created_at ASC, id ASC`,
   );
 
   return rows.map(toSource);
@@ -116,7 +125,12 @@ export function addSource(input, now = Date.now()) {
     let id = 0;
 
     db.transactionSync(() => {
-      const {rows} = db.executeSync('SELECT COUNT(*) AS n FROM sources');
+      // Se activa si no hay ninguna activa, no si es la primera de la lista: con
+      // el ejemplo inactivo en la lista, la primera fuente propia tiene que
+      // seguir activandose sola (REQ-017, delta mazo de ejemplo).
+      const {rows} = db.executeSync(
+        'SELECT COUNT(*) AS n FROM sources WHERE is_active = 1',
+      );
       const isFirst = rows[0].n === 0;
 
       db.executeSync(
@@ -182,9 +196,12 @@ export function updateSource(id, input) {
     // envoltorio, y esa es justo la clase de divergencia contra la que avisa
     // DD-014. Aca no hay nada especifico del motor.
     db.transactionSync(() => {
-      const exists = db.executeSync('SELECT id, url_csv FROM sources WHERE id = ?', [
-        id,
-      ]).rows;
+      // El ejemplo no se edita (REQ-030 modificado): no tiene hoja que cambiar. La
+      // interfaz no lo ofrece; esto es la red por si alguien lo pide igual.
+      const exists = db.executeSync(
+        "SELECT id, url_csv FROM sources WHERE id = ? AND kind = 'sheet'",
+        [id],
+      ).rows;
 
       if (exists.length === 0) {
         return;
@@ -245,8 +262,10 @@ export function removeSource(id) {
       return;
     }
 
+    // El ejemplo no se elige: solo se activa si lo elige el usuario. Si es lo
+    // unico que queda, no hay activa (REQ-035, delta mazo de ejemplo).
     const next = db.executeSync(
-      'SELECT id FROM sources ORDER BY created_at ASC, id ASC LIMIT 1',
+      "SELECT id FROM sources WHERE kind = 'sheet' ORDER BY created_at ASC, id ASC LIMIT 1",
     ).rows;
 
     if (next.length > 0) {
