@@ -11,6 +11,7 @@
  * @format
  */
 
+import {seedExampleDeck} from '../sources/exampleDeck';
 import {MIGRATIONS, SCHEMA_VERSION} from './schema';
 
 /** Nombre del archivo de base en el almacenamiento privado de la app. */
@@ -38,6 +39,18 @@ export const DATABASE_NAME = 'mason.sqlite';
 
 /** @type {Driver | null} */
 let driver = null;
+
+/**
+ * Lo que se siembra al crear la base desde cero (EJEMPLO-001).
+ *
+ * Vive en una variable de modulo y no en un parametro para que `initSources` y
+ * sus llamadores no cambien. En produccion es siempre `seedExampleDeck`; los
+ * tests la apagan con `resetDatabaseForTests()` y la encienden con
+ * `enableExampleSeedForTests()` (DD-023).
+ *
+ * @type {((db: Driver, now: number) => void) | null}
+ */
+let seed = seedExampleDeck;
 
 /**
  * Driver por defecto: op-sqlite.
@@ -138,6 +151,29 @@ export function getDb() {
  */
 export function resetDatabaseForTests() {
   driver = null;
+  // Sin ejemplo: los tests que abren una base nueva dan por hecho que esta vacia,
+  // y lo que prueban no es el ejemplo (DD-023).
+  seed = null;
+}
+
+/**
+ * Enciende la siembra en los tests, con el ejemplo real o con la funcion que se
+ * pase (por ejemplo, una que falla, para probar DD-020).
+ *
+ * @param {(db: Driver, now: number) => void} [fn]
+ */
+export function enableExampleSeedForTests(fn = seedExampleDeck) {
+  seed = fn;
+}
+
+/**
+ * La siembra vigente. Solo para el test que comprueba que la de produccion es
+ * `seedExampleDeck` (DD-023, riesgo 1).
+ *
+ * @returns {((db: Driver, now: number) => void) | null}
+ */
+export function currentSeedForTests() {
+  return seed;
 }
 
 /**
@@ -151,6 +187,11 @@ export function resetDatabaseForTests() {
  */
 function migrate(db) {
   const current = readUserVersion(db);
+
+  if (current === 0) {
+    createFromScratch(db);
+    return;
+  }
 
   for (let version = current + 1; version <= SCHEMA_VERSION; version += 1) {
     const statements = MIGRATIONS[version];
@@ -168,6 +209,38 @@ function migrate(db) {
       db.executeSync(`PRAGMA user_version = ${version}`);
     });
   }
+}
+
+/**
+ * Crea una base nueva: todas las migraciones, la siembra y la version, en UNA
+ * transaccion (DD-020).
+ *
+ * Si la siembra fuera aparte, un fallo entre las migraciones y la siembra dejaria
+ * `user_version` al dia y sin ejemplo, y el siguiente arranque ya no veria una
+ * base nueva: el ejemplo no llegaria nunca. Asi, o queda todo, o la base sigue en
+ * 0 y el proximo arranque lo reintenta entero. El error sigue hasta el `try` de
+ * `openDatabase`, que lo convierte en el estado de REQ-005.
+ *
+ * @param {Driver} db
+ */
+function createFromScratch(db) {
+  db.transactionSync(() => {
+    for (let version = 1; version <= SCHEMA_VERSION; version += 1) {
+      const statements = MIGRATIONS[version];
+
+      if (statements == null) {
+        throw new Error(`No hay migracion definida para la version ${version}`);
+      }
+
+      statements.forEach(sql => db.executeSync(sql));
+    }
+
+    if (seed != null) {
+      seed(db, Date.now());
+    }
+
+    db.executeSync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+  });
 }
 
 /**

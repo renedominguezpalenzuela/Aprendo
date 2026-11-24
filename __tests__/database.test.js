@@ -4,16 +4,20 @@
  * Corren contra `node:sqlite` en memoria (design.md DD-014): SQL de verdad, con
  * las mismas restricciones e indices que en el telefono.
  *
- * Cubre REQ-001, REQ-002, REQ-003 y REQ-005.
+ * Cubre REQ-001, REQ-002, REQ-003 y REQ-005, y la migracion 4 y la siembra del
+ * delta mazo de ejemplo (EJEMPLO-001, DD-020, DD-023).
  *
  * @format
  */
 
 import {
+  currentSeedForTests,
+  enableExampleSeedForTests,
   getDb,
   openDatabase,
   resetDatabaseForTests,
 } from '../src/db/database';
+import {EXAMPLE_NAME, seedExampleDeck} from '../src/sources/exampleDeck';
 import {MIGRATIONS, SCHEMA_VERSION} from '../src/db/schema';
 import {makeMemoryDriver} from './support/nodeSqliteDriver';
 
@@ -49,6 +53,8 @@ describe('openDatabase', () => {
       // Llega con la migracion 2 (deck-sync REQ-011). Una base recien creada
       // aplica las dos migraciones seguidas, asi que tambien la tiene.
       'last_synced_at',
+      // Migracion 4 (delta mazo de ejemplo).
+      'kind',
     ]);
   });
 
@@ -334,7 +340,9 @@ describe('migracion 3: la imagen pasa a data URI (delta de base64)', () => {
     const {makeDriver} = openAtVersion2WithDeck();
     const {db} = openDatabase(makeDriver);
 
-    expect(userVersion(db)).toBe(3);
+    // Llega a la ultima version, que ya no es la 3: lo que importa aqui es que
+    // la 3 se aplico, y eso lo dicen las aserciones de abajo.
+    expect(userVersion(db)).toBe(SCHEMA_VERSION);
 
     // Las fuentes sobreviven con su nombre y su URL: perderlas si seria un fallo.
     const sources = db.executeSync('SELECT name, url_csv FROM sources').rows;
@@ -398,5 +406,145 @@ describe('migracion 3: la imagen pasa a data URI (delta de base64)', () => {
     // Lo declarado y lo que el motor mide coinciden: es el heredero honesto del
     // test de DD-016, que comparaba byte_size con length(bytes).
     expect(row.medido).toBe(row.stored_bytes);
+  });
+});
+
+describe('migracion 4 y mazo de ejemplo (delta mazo-de-ejemplo)', () => {
+  /** Base en la version 3 con una fuente propia, como la de quien actualiza la app. */
+  function openAtVersion3WithSource() {
+    const makeDriver = makeMemoryDriver();
+    const db = makeDriver();
+
+    db.executeSync('PRAGMA foreign_keys = ON');
+    db.transactionSync(() => {
+      [1, 2, 3].forEach(v => MIGRATIONS[v].forEach(sql => db.executeSync(sql)));
+      db.executeSync('PRAGMA user_version = 3');
+    });
+    db.executeSync(
+      `INSERT INTO sources (name, name_key, url_original, url_csv, is_active, created_at)
+       VALUES ('Geografia', 'geografia', 'u', 'c', 1, 100)`,
+    );
+
+    return () => db;
+  }
+
+  const examples = db =>
+    db.executeSync("SELECT * FROM sources WHERE kind = 'example'").rows;
+
+  it('en produccion la siembra es seedExampleDeck (DD-023)', () => {
+    // `resetDatabaseForTests` del beforeEach la apaga; este test lee el valor con
+    // el que nace el modulo, que es el que vera la app.
+    jest.isolateModules(() => {
+      const fresh = require('../src/db/database');
+      const {seedExampleDeck: real} = require('../src/sources/exampleDeck');
+
+      expect(fresh.currentSeedForTests()).toBe(real);
+    });
+  });
+
+  it('resetDatabaseForTests la apaga: una base nueva de test nace vacia', () => {
+    expect(currentSeedForTests()).toBeNull();
+
+    const {db} = openDatabase(makeMemoryDriver());
+
+    expect(db.executeSync('SELECT COUNT(*) AS n FROM sources').rows[0].n).toBe(0);
+  });
+
+  it('una base nueva trae el ejemplo, inactivo, con 20 preguntas visibles (EJEMPLO-001)', () => {
+    enableExampleSeedForTests();
+
+    const {ok, db} = openDatabase(makeMemoryDriver());
+
+    expect(ok).toBe(true);
+    expect(userVersion(db)).toBe(SCHEMA_VERSION);
+
+    const [example] = examples(db);
+    expect(example).toMatchObject({
+      name: EXAMPLE_NAME,
+      is_active: 0,
+      url_original: '',
+      url_csv: '',
+      last_synced_at: null,
+    });
+
+    const questions = db.executeSync(
+      'SELECT position, is_pending FROM questions WHERE source_id = ? ORDER BY position',
+      [example.id],
+    ).rows;
+    expect(questions).toHaveLength(20);
+    expect(questions.every((q, i) => q.position === i && q.is_pending === 0)).toBe(true);
+  });
+
+  it('sobre una base existente migra a 4 SIN ejemplo y conserva todo (EJEMPLO-001)', () => {
+    enableExampleSeedForTests();
+
+    const {db} = openDatabase(openAtVersion3WithSource());
+
+    expect(userVersion(db)).toBe(SCHEMA_VERSION);
+    expect(examples(db)).toHaveLength(0);
+    expect(db.executeSync('SELECT name, is_active, kind FROM sources').rows).toEqual([
+      {name: 'Geografia', is_active: 1, kind: 'sheet'},
+    ]);
+  });
+
+  it('reabrir una base que ya tiene el ejemplo no lo duplica', () => {
+    enableExampleSeedForTests();
+    const makeDriver = makeMemoryDriver();
+    const db = makeDriver();
+
+    openDatabase(() => db);
+    resetDatabaseForTests();
+    enableExampleSeedForTests();
+    openDatabase(() => db);
+
+    expect(examples(db)).toHaveLength(1);
+  });
+
+  it('si la siembra falla, no queda NADA y user_version sigue en 0 (DD-020)', () => {
+    const makeDriver = makeMemoryDriver();
+    const db = makeDriver();
+
+    enableExampleSeedForTests((conn, now) => {
+      seedExampleDeck(conn, now);
+      throw new Error('disco lleno a mitad de la siembra');
+    });
+    const failed = openDatabase(() => db);
+
+    expect(failed.ok).toBe(false);
+    expect(userVersion(db)).toBe(0);
+    expect(
+      db.executeSync("SELECT name FROM sqlite_master WHERE name='sources'").rows,
+    ).toHaveLength(0);
+
+    // El siguiente arranque, con la siembra sana, crea la base entera.
+    resetDatabaseForTests();
+    enableExampleSeedForTests();
+    const retried = openDatabase(() => db);
+
+    expect(retried.ok).toBe(true);
+    expect(examples(retried.db)).toHaveLength(1);
+  });
+
+  it('el esquema rechaza un segundo ejemplo (sources_one_example)', () => {
+    enableExampleSeedForTests();
+    const {db} = openDatabase(makeMemoryDriver());
+
+    expect(() =>
+      db.executeSync(
+        `INSERT INTO sources (name, name_key, url_original, url_csv, is_active, created_at, kind)
+         VALUES ('Otro', 'otro', '', '', 0, 1, 'example')`,
+      ),
+    ).toThrow(/UNIQUE/i);
+  });
+
+  it('el esquema rechaza un kind desconocido', () => {
+    const {db} = openDatabase(makeMemoryDriver());
+
+    expect(() =>
+      db.executeSync(
+        `INSERT INTO sources (name, name_key, url_original, url_csv, is_active, created_at, kind)
+         VALUES ('X', 'x', 'u', 'c', 0, 1, 'otro')`,
+      ),
+    ).toThrow(/CHECK/i);
   });
 });

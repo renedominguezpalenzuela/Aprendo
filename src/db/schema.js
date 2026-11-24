@@ -15,7 +15,7 @@
  *
  * Se compara contra `PRAGMA user_version` al abrir (REQ-003).
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 /**
  * Migraciones indexadas por la version a la que llevan.
@@ -144,5 +144,18 @@ export const MIGRATIONS = {
 
     // Sin mazo, la fecha seria mentira.
     `UPDATE sources SET last_synced_at = NULL`,
+  ],
+
+  // Delta mazo de ejemplo (DD-021): la fuente de ejemplo no tiene hoja, y hay que
+  // poder distinguirla. Las filas que ya existian son todas de hoja, que es lo que
+  // dice el DEFAULT. Esta migracion NO siembra nada: sobre una base existente el
+  // ejemplo no aparece (EJEMPLO-001). La siembra solo ocurre al crear la base
+  // desde cero, en `migrate` (DD-020).
+  4: [
+    `ALTER TABLE sources ADD COLUMN kind TEXT NOT NULL DEFAULT 'sheet'
+       CHECK (kind IN ('sheet', 'example'))`,
+    // Como mucho un ejemplo, impuesto por el esquema y no por el codigo, igual
+    // que la fuente activa (DD-007).
+    `CREATE UNIQUE INDEX sources_one_example ON sources (kind) WHERE kind = 'example'`,
   ],
 };
