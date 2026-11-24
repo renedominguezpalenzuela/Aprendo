@@ -260,6 +260,35 @@ describe('MainView: navegacion entre vistas', () => {
   });
 });
 
+describe('MainView: salir de Datos descarta el formulario (REQ-049, DD-017)', () => {
+  // Se cumple porque MainView desmonta DataScreen al cambiar de vista. Este
+  // test existe para que mantenerla montada —por ejemplo, para conservar el
+  // scroll— no rompa la regla sin avisar.
+  it('con fuentes, al volver esta oculto y al desplegar, vacio', () => {
+    addSource({name: 'Aprendiz', url: SHEET}, 1);
+    refresh();
+    const renderer = render();
+
+    press(renderer, 'Abrir menú');
+    press(renderer, 'Datos');
+    press(renderer, FORM.open);
+    act(() => {
+      renderer.root.findAllByType(TextInput)[0].props.onChangeText('Companero');
+    });
+
+    press(renderer, 'Abrir menú');
+    press(renderer, 'Tarjetas');
+    press(renderer, 'Abrir menú');
+    press(renderer, 'Datos');
+
+    expect(renderer.root.findAllByType(TextInput)).toHaveLength(0);
+    expect(texts(renderer)).toContain(FORM.open.toUpperCase());
+
+    press(renderer, FORM.open);
+    expect(renderer.root.findAllByType(TextInput)[0].props.value).toBe('');
+  });
+});
+
 describe('MainView: titulo segun la fuente activa', () => {
   // REQ-041: sin fuente activa, el titulo por defecto de la vista.
   it('sin fuente activa usa el titulo por defecto', () => {
