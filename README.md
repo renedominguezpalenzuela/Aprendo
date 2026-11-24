@@ -19,6 +19,11 @@ fuente) y elegir cuál está activa.
 En [Google Sheets](https://sheets.google.com) crea una hoja nueva. La **fila 1** es la cabecera,
 con estos nombres de columna; las preguntas empiezan en la fila 2, una por fila.
 
+> **¿Quieres probar con un ejemplo?** [`ejemplos/sistema-solar.csv`](ejemplos/sistema-solar.csv)
+> trae 20 preguntas sobre el sistema solar con el formato listo. Descárgalo, crea una hoja en
+> blanco en Google Sheets y usa **Archivo → Importar → Subir**, con *Reemplazar hoja actual*.
+> Después sigue desde el paso 3.
+
 | Columna | ¿Obligatoria? | Qué va en ella |
 | --- | --- | --- |
 | `Pregunta` | Sí | El texto de la pregunta (anverso de la tarjeta) |
