@@ -1,4 +1,4 @@
-Required Notice: Copyright (c) 2026 renedp1975
+Required Notice: Copyright (c) 2026 Rene Dominguez
 
 # PolyForm Noncommercial License 1.0.0
 
