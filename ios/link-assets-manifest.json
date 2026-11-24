@@ -1,0 +1,21 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "assets/fonts/BarlowCondensed-Regular.ttf",
+      "sha1": "3d27a7d548d49428212d7d19299b4ac29ac8b6a2"
+    },
+    {
+      "path": "assets/fonts/Cinzel-Bold.ttf",
+      "sha1": "b88b6bb7c15bc9c8b1a049f40b6c716a5d3c0672"
+    },
+    {
+      "path": "assets/fonts/EBGaramond-Regular.ttf",
+      "sha1": "0748638c5ac831ea9e4ccb597361d0785b48c384"
+    },
+    {
+      "path": "assets/fonts/OFL.txt",
+      "sha1": "145f3043ddc779395c4acccfa8fa379e4dc2622e"
+    }
+  ]
+}

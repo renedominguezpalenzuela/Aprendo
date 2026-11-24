@@ -1,0 +1,96 @@
+.DS_Store
+node_modules/
+*.log
+
+# OSX
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata
+*.xccheckout
+*.moved-aside
+*.xcuserstate
+ios/.xcode.env.local
+
+# Xcode / CocoaPods
+ios/build/
+ios/Pods/
+ios/*.xcworkspace
+
+# Android/IntelliJ
+android/build/
+android/app/build/
+android/.gradle/
+android/.idea
+android/.cxx
+android/local.properties
+*.iml
+*.hprof
+.idea
+.gradle
+build/
+
+# Ruby / Bundler
+vendor/
+.bundle/
+
+# node.js
+npm-debug.log
+yarn-error.log
+
+# Metro
+.metro-health-check*
+
+# testing
+/coverage
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Archivos descargados de fuentes (la version extraida si se versiona)
+assets/*.zip
+
+# NDK/CMake
+android/app/.cxx/
+
+# Variables de entorno locales
+.env
+
+# Firma de release (specs/features/android-release, REQ-003 y DD-005).
+# El secreto NO entra en git: un secreto commiteado no se va con otro commit,
+# se queda en el historial. Estas lineas van ANTES de que el keystore exista.
+*.keystore
+*.jks
+*.p12
+# Sin anclar a android/: el mismo archivo en otra carpeta seria el mismo secreto.
+keystore.properties
+# El de depuracion es publico A PROPOSITO —su contrasena esta documentada por
+# Android y escrita en build.gradle— y CUALQUIER clon lo necesita para compilar
+# en depuracion (DD-002). Ya esta rastreado, asi que la negacion no lo "salva":
+# se escribe como declaracion de intencion y como red por si algun dia alguien
+# hace `git rm --cached`.
+!android/app/debug.keystore
+
+# Claude Code: configuracion, comandos e instrucciones locales. No se versionan.
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+**/CLAUDE.md
+**/CLAUDE.local.md
+
+# Metodologia SDD (specs, aprendizajes, skills y plantillas). Es material de
+# trabajo con Claude Code y no se versiona.
+/docs/
+/skills/
+/specs/
+/templates/

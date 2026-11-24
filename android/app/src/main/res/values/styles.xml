@@ -1,0 +1,38 @@
+<resources>
+  <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <!-- Customize your theme here. -->
+    <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+
+    <!--
+      La vista principal es oscura SIEMPRE, con independencia del tema del
+      sistema (REQ-027). De ahi los tres items siguientes.
+
+      windowBackground: el padre es DayNight, cuyo fondo de ventana es blanco en
+      modo claro. Ese blanco asoma en el hueco entre el fin del tema de splash
+      (postBootSplashTheme) y el primer frame de React Native. Es el mismo flash
+      que prohibe REQ-009 del splash, en el otro extremo del arranque (DD-006).
+
+      windowLightStatusBar / windowLightNavigationBar: sobre fondo oscuro los
+      iconos deben ir claros, y "light bar" significa iconos OSCUROS para fondo
+      claro, asi que aca van en false (REQ-033).
+
+      La barra de navegacion NO la controla el componente StatusBar de React
+      Native, solo el tema: por eso hace falta declararla aqui y no basta con el
+      barStyle de App.js. Ver design.md DD-004.
+
+      No se crea values-night/: los valores deben ser identicos en ambos temas
+      del sistema, que es justamente lo que exige REQ-027.
+    -->
+    <item name="android:windowBackground">@color/mason_background</item>
+    <item name="android:windowLightStatusBar">false</item>
+    <item name="android:windowLightNavigationBar">false</item>
+  </style>
+
+  <style name="BootTheme" parent="Theme.BootSplash">
+    <item name="darkContentBarsStyle">true</item>
+
+    <item name="bootSplashBackground">@color/bootsplash_background</item>
+    <item name="bootSplashLogo">@drawable/bootsplash_logo</item>
+    <item name="postBootSplashTheme">@style/AppTheme</item>
+  </style>
+</resources>

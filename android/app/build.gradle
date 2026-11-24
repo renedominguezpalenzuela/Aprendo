@@ -1,0 +1,202 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+/**
+ * This is the configuration block to customize your React Native Android app.
+ * By default you don't need to apply any configuration, just uncomment the lines you need.
+ */
+react {
+    /* Folders */
+    //   The root of your project, i.e. where "package.json" lives. Default is '../..'
+    // root = file("../../")
+    //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
+    // reactNativeDir = file("../../node_modules/react-native")
+    //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
+    // codegenDir = file("../../node_modules/@react-native/codegen")
+    //   The cli.js file which is the React Native CLI entrypoint. Default is ../../node_modules/react-native/cli.js
+    // cliFile = file("../../node_modules/react-native/cli.js")
+
+    /* Variants */
+    //   The list of variants to that are debuggable. For those we're going to
+    //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
+    //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
+    // debuggableVariants = ["liteDebug", "prodDebug"]
+
+    /* Bundling */
+    //   A list containing the node command and its flags. Default is just 'node'.
+    // nodeExecutableAndArgs = ["node"]
+    //
+    //   The command to run when bundling. By default is 'bundle'
+    // bundleCommand = "ram-bundle"
+    //
+    //   The path to the CLI configuration file. Default is empty.
+    // bundleConfig = file(../rn-cli.config.js)
+    //
+    //   The name of the generated asset file containing your JS bundle
+    // bundleAssetName = "MyApplication.android.bundle"
+    //
+    //   The entry file for bundle generation. Default is 'index.android.js' or 'index.js'
+    // entryFile = file("../js/MyApplication.android.js")
+    //
+    //   A list of extra flags to pass to the 'bundle' commands.
+    //   See https://github.com/react-native-community/cli/blob/main/docs/commands.md#bundle
+    // extraPackagerArgs = []
+
+    /* Hermes Commands */
+    //   The hermes compiler command to run. By default it is 'hermesc'
+    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    //
+    //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
+    // hermesFlags = ["-O", "-output-source-map"]
+
+    /* Autolinking */
+    autolinkLibrariesWithApp()
+}
+
+/**
+ * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
+ */
+def enableProguardInReleaseBuilds = false
+
+/**
+ * Credenciales de firma de release.
+ *
+ * Viven en android/keystore.properties, que NO esta en git (REQ-003). Ver
+ * docs/android-release.md para recrearlo en otra maquina.
+ *
+ * Se cargan aqui, en tiempo de configuracion, pero NO se valida nada todavia: la
+ * validacion vive en la puerta del final del archivo. El motivo esta en DD-001.
+ */
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+def hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+/** Las cuatro claves que AGP necesita para firmar. Ninguna es opcional. */
+def CLAVES_DE_FIRMA = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']
+
+/**
+ * The preferred build flavor of JavaScriptCore (JSC)
+ *
+ * For example, to use the international variant, you can use:
+ * `def jscFlavor = io.github.react-native-community:jsc-android-intl:2026004.+`
+ *
+ * The international variant includes ICU i18n library and necessary data
+ * allowing to use e.g. `Date.toLocaleString` and `String.localeCompare` that
+ * give correct results when using with locales other than en-US. Note that
+ * this variant is about 6MiB larger per architecture than default.
+ */
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    namespace "com.mason"
+    defaultConfig {
+        applicationId "com.mason"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+    }
+    signingConfigs {
+        // Esta credencial es PUBLICA a proposito: la documenta Android y el
+        // keystore esta versionado, porque cualquier clon lo necesita para
+        // compilar en depuracion. No se saca a un archivo aparte (DD-002).
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        // Los valores son nulos cuando no hay credenciales, y no pasa nada: la
+        // puerta del final del archivo corta antes de que AGP intente firmar.
+        release {
+            storeFile hasReleaseKeystore && keystoreProperties['storeFile']
+                    ? file(keystoreProperties['storeFile'])
+                    : null
+            storePassword keystoreProperties['storePassword']
+            keyAlias keystoreProperties['keyAlias']
+            keyPassword keystoreProperties['keyPassword']
+            // PKCS12, no JKS: keytool avisa de que JKS es formato propietario.
+            // Consecuencia: en PKCS12 la contrasena de la clave ES la del
+            // almacen, asi que las dos propiedades llevan el mismo valor (DD-003).
+            storeType 'pkcs12'
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // La APK de release se firma con la clave del proyecto, nunca con la
+            // de depuracion (REQ-001). Si no hay credenciales, no hay APK.
+            signingConfig signingConfigs.release
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+/**
+ * PUERTA: sin credenciales completas no se compila release (REQ-002).
+ *
+ * Va en el GRAFO DE TAREAS y no en la configuracion, y la diferencia importa
+ * (DD-001):
+ *
+ *   - Lanzar la excepcion al configurar romperia `assembleDebug`, porque Gradle
+ *     evalua la configuracion entera en CADA invocacion. Un clon sin credenciales
+ *     no podria ni compilar en depuracion (REQ-012).
+ *   - No declarar el signingConfig haria que AGP produjera
+ *     `app-release-unsigned.apk` sin decir nada: un archivo que parece el
+ *     resultado y no se puede instalar. Peor que un error.
+ *
+ * Se prefiere pedir las credenciales alguna vez de mas —una tarea de release que
+ * no llega a firmar— a dejar pasar una APK sin firmar alguna vez de menos.
+ */
+gradle.taskGraph.whenReady { graph ->
+    def compilaRelease = graph.allTasks.any {
+        it.project == project && it.name.toLowerCase().contains('release')
+    }
+    if (!compilaRelease) {
+        return
+    }
+
+    def ayuda = "\nVer docs/android-release.md para recrear el entorno de firma."
+
+    if (!hasReleaseKeystore) {
+        throw new GradleException(
+                "Falta android/keystore.properties, asi que no hay con que firmar.\n" +
+                "La APK de release NO se firma con el keystore de depuracion." + ayuda)
+    }
+
+    def ausentes = CLAVES_DE_FIRMA.findAll { !keystoreProperties[it]?.trim() }
+    if (ausentes) {
+        throw new GradleException(
+                "android/keystore.properties existe pero le faltan claves: " +
+                ausentes.join(', ') + ayuda)
+    }
+
+    def almacen = file(keystoreProperties['storeFile'])
+    if (!almacen.exists()) {
+        throw new GradleException(
+                "android/keystore.properties apunta a un keystore que no existe:\n" +
+                almacen.absolutePath + ayuda)
+    }
+}
+
+dependencies {
+    // The version of react-native is set by the React Native Gradle Plugin
+    implementation("com.facebook.react:react-android")
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+}

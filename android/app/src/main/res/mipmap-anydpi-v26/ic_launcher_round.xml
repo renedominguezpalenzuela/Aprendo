@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  El `android:roundIcon` del manifiesto, para API 26 y superiores.
+
+  Es IDENTICO a ic_launcher.xml a proposito. Un icono adaptativo ya se recorta con
+  la mascara que elija el lanzador, incluida la circular, asi que no hay nada que
+  redondear aqui: la variante redonda de verdad es el PNG pre-recortado que usan
+  API 24 y 25, en `mipmap-*/ic_launcher_round.png`.
+
+  Existe de todos modos porque el manifiesto declara `android:roundIcon`. Si
+  faltara, en API 26+ ese atributo resolveria al PNG heredado —ya recortado en
+  circulo— y un lanzador con mascara de cuadrado redondeado dibujaria un circulo
+  dentro de un cuadrado.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <background android:drawable="@color/ic_launcher_background" />
+  <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+  <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

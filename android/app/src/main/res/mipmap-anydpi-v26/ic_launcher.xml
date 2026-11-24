@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Icono adaptativo, para API 26 y superiores.
+
+  Vive en `mipmap-anydpi-v26` y no en `mipmap`, y de ahi sale el reparto: en API
+  26+ este XML gana sobre los PNG de las carpetas de densidad, y en API 24 y 25
+  —que es el minSdkVersion del proyecto— este calificador no existe y el sistema
+  cae en `mipmap-*/ic_launcher.png`. Las dos rutas tienen que seguir existiendo.
+
+  El arte se genera con scripts/make-app-icons.py, que mide el margen contra la
+  zona garantizada de 72 dp en vez de fiarse de la bbox. No editar los PNG a mano.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+  <background android:drawable="@color/ic_launcher_background" />
+  <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+  <!--
+    Capa de los iconos tematicos de Android 13+, donde el sistema tinta la forma
+    que define el ALFA y descarta el color. Se reusa la capa delantera porque el
+    arte ya es una silueta negra sobre transparente, o sea exactamente lo que esa
+    capa necesita.
+
+    Declararla no es cosmetico: sin ella, con el tema de iconos activado, Android
+    se inventa una monocroma a partir del icono en color y el resultado es un
+    borron. `monochrome` se ignora por debajo de API 33.
+  -->
+  <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

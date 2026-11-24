@@ -1,0 +1,31 @@
+<resources>
+    <color name="bootsplash_background">#f4f1ea</color>
+
+    <!--
+      Capa de fondo del icono adaptativo (mipmap-anydpi-v26/ic_launcher.xml).
+
+      DUPLICADO A PROPOSITO de bootsplash_background, que hoy vale lo mismo. No se
+      reusa ese recurso porque son dos decisiones distintas que solo coinciden: el
+      fondo del splash puede cambiar con el rediseno de una pantalla, mientras que
+      el fondo del icono solo cambia cuando cambia la marca. Apuntar el icono al
+      recurso del splash haria que un ajuste de pantalla se colara en el icono de
+      la aplicacion, que es el sitio donde menos se nota y mas cuesta revertir.
+
+      El mismo color, en su tercera copia, esta en scripts/make-app-icons.py, que
+      es quien lo pinta en los PNG heredados de API 24 y 25.
+    -->
+    <color name="ic_launcher_background">#f4f1ea</color>
+
+    <!--
+      Fondo de la vista principal.
+
+      DUPLICADO A PROPOSITO de COLOR.background en src/theme/masonTheme.js. El
+      tema nativo necesita este color antes de que exista React Native, para que
+      no asome el blanco del windowBackground de Theme.AppCompat.DayNight en el
+      hueco entre el fin del tema de splash y el primer frame de la app
+      (REQ-032). Si cambia alla, cambiar aca.
+
+      Ver specs/features/main-view/design.md DD-006.
+    -->
+    <color name="mason_background">#131A22</color>
+</resources>

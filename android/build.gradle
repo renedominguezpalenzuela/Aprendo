@@ -1,0 +1,45 @@
+buildscript {
+    ext {
+        buildToolsVersion = "35.0.0"
+        minSdkVersion = 24
+        compileSdkVersion = 35
+        targetSdkVersion = 35
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.1.20"
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle")
+        classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
+    }
+}
+
+apply plugin: "com.facebook.react.rootproject"
+
+/*
+ * Fuerza a TODOS los modulos nativos a usar el NDK del proyecto.
+ *
+ * op-sqlite no declara `ndkVersion` en su bloque `android`, asi que AGP le
+ * aplica su NDK por defecto (27.0.12077973) en vez del que declara `ext`. Eso
+ * hace que Gradle intente descargar e instalar un SEGUNDO NDK de ~3 GB solo
+ * para ese modulo, y falle el build si no puede.
+ *
+ * Cualquier otro modulo nativo que se anada despues tendria el mismo problema,
+ * por eso se aplica a todos y no solo a op-sqlite.
+ */
+subprojects { subproject ->
+    // `plugins.withId` en vez de `afterEvaluate`: con el autolinking de RN 0.80
+    // algunos subproyectos ya estan evaluados cuando corre este archivo, y
+    // `afterEvaluate` sobre uno de ellos revienta la configuracion entera.
+    ["com.android.library", "com.android.application"].each { pluginId ->
+        subproject.plugins.withId(pluginId) {
+            subproject.android {
+                ndkVersion rootProject.ext.ndkVersion
+            }
+        }
+    }
+}
