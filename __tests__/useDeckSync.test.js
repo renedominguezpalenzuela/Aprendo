@@ -419,3 +419,35 @@ describe('estabilidad del snapshot (data-sources DD-005)', () => {
     expect(box.renders - before).toBeLessThan(6);
   });
 });
+
+describe('el mazo de ejemplo no se actualiza (deck-sync REQ-010, delta mazo-de-ejemplo)', () => {
+  const EXAMPLE = {id: 99, name: 'Ejemplo: El sistema solar', urlCsv: null, isExample: true};
+
+  it('no llama a la red ni publica fase alguna', async () => {
+    const net = fakeNet();
+    const seen = [];
+    const unsubscribe = subscribe(() => seen.push(getSnapshot().phase));
+
+    const result = await startSync(EXAMPLE, {net});
+    unsubscribe();
+
+    expect(result).toEqual({ok: false});
+    expect(net.downloadText).not.toHaveBeenCalled();
+    expect(seen).toEqual([]);
+    expect(isSyncing()).toBe(false);
+  });
+
+  it('no ocupa el cerrojo: una actualizacion de verdad justo despues arranca', async () => {
+    const net = fakeNet();
+
+    await startSync(EXAMPLE, {net});
+    let result;
+    await act(async () => {
+      result = await startSync(fisica, {net});
+    });
+
+    expect(result.ok).toBe(true);
+    expect(net.downloadText).toHaveBeenCalledTimes(1);
+  });
+});
+

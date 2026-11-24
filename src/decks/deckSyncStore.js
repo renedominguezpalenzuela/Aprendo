@@ -96,6 +96,14 @@ export function isSyncing() {
  * @returns {Promise<{ok: boolean, report?: SyncReport}>}
  */
 export async function startSync(source, deps = {}) {
+  // El mazo de ejemplo viene dentro de la app y no tiene hoja: no hay nada que
+  // descargar (deck-sync REQ-010, delta mazo de ejemplo). Va ANTES del cerrojo
+  // para no publicar `preparing` ni abrir la ventana de progreso, y para no
+  // ocupar el cerrojo que necesita la siguiente actualizacion de verdad.
+  if (source?.isExample === true) {
+    return {ok: false};
+  }
+
   // EL CERROJO. Sin `await` por delante a proposito: entre esta comprobacion y la
   // publicacion no cede el hilo, asi que dos pulsaciones no pueden colarse las dos.
   if (isSyncing()) {
