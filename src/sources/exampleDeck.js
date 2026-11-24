@@ -11,7 +11,7 @@
  * @format
  */
 
-import { nameKey } from './sourceUrl';
+import {nameKey} from './sourceUrl';
 
 /** @type {string} */
 export const EXAMPLE_NAME = 'Ejemplo: El sistema solar';
